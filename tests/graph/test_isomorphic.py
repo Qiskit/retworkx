@@ -228,3 +228,85 @@ class TestIsomorphic(unittest.TestCase):
                 self.assertFalse(
                     retworkx.is_isomorphic(g_a, g_b, id_order=id_order)
                 )
+
+    def test_graph_vf2_mapping_identical(self):
+        graph = retworkx.generators.grid_graph(2, 2)
+        second_graph = retworkx.generators.grid_graph(2, 2)
+        mapping = retworkx.graph_vf2_mapping(graph, second_graph)
+        self.assertEqual(next(mapping), {0: 0, 1: 1, 2: 2, 3: 3})
+
+    def test_graph_vf2_mapping_identical_removals(self):
+        graph = retworkx.generators.path_graph(2)
+        second_graph = retworkx.generators.path_graph(4)
+        second_graph.remove_nodes_from([1, 2])
+        second_graph.add_edge(0, 3, None)
+        mapping = retworkx.graph_vf2_mapping(graph, second_graph)
+        self.assertEqual({0: 0, 1: 3}, next(mapping))
+
+    def test_graph_vf2_mapping_identical_removals_first(self):
+        second_graph = retworkx.generators.path_graph(2)
+        graph = retworkx.generators.path_graph(4)
+        graph.remove_nodes_from([1, 2])
+        graph.add_edge(0, 3, None)
+        mapping = retworkx.graph_vf2_mapping(
+            graph,
+            second_graph,
+        )
+        self.assertEqual({0: 0, 3: 1}, next(mapping))
+
+    def test_subgraph_vf2_mapping(self):
+        graph = retworkx.generators.grid_graph(10, 10)
+        second_graph = retworkx.generators.grid_graph(2, 2)
+        mapping = retworkx.graph_vf2_mapping(graph, second_graph, subgraph=True)
+        self.assertEqual(next(mapping), {0: 0, 1: 1, 10: 2, 11: 3})
+
+    def test_graph_vf2_mapping_identical_vf2pp(self):
+        graph = retworkx.generators.grid_graph(2, 2)
+        second_graph = retworkx.generators.grid_graph(2, 2)
+        mapping = retworkx.graph_vf2_mapping(
+            graph, second_graph, id_order=False
+        )
+        self.assertEqual(next(mapping), {0: 0, 1: 1, 2: 2, 3: 3})
+
+    def test_graph_vf2_mapping_identical_removals_vf2pp(self):
+        graph = retworkx.generators.path_graph(2)
+        second_graph = retworkx.generators.path_graph(4)
+        second_graph.remove_nodes_from([1, 2])
+        second_graph.add_edge(0, 3, None)
+        mapping = retworkx.graph_vf2_mapping(
+            graph, second_graph, id_order=False
+        )
+        self.assertEqual({0: 0, 1: 3}, next(mapping))
+
+    def test_graph_vf2_mapping_identical_removals_first_vf2pp(self):
+        second_graph = retworkx.generators.path_graph(2)
+        graph = retworkx.generators.path_graph(4)
+        graph.remove_nodes_from([1, 2])
+        graph.add_edge(0, 3, None)
+        mapping = retworkx.graph_vf2_mapping(
+            graph, second_graph, id_order=False
+        )
+        self.assertEqual({0: 0, 3: 1}, next(mapping))
+
+    def test_subgraph_vf2_mapping_vf2pp(self):
+        graph = retworkx.generators.grid_graph(3, 3)
+        second_graph = retworkx.generators.grid_graph(2, 2)
+        mapping = retworkx.graph_vf2_mapping(
+            graph, second_graph, subgraph=True, id_order=False
+        )
+        self.assertEqual(next(mapping), {4: 0, 3: 2, 0: 3, 1: 1})
+
+    def test_vf2pp_remapping(self):
+        temp = retworkx.generators.grid_graph(3, 3)
+
+        graph = retworkx.PyGraph()
+        dummy = graph.add_node(0)
+
+        graph.compose(temp, dict())
+        graph.remove_node(dummy)
+
+        second_graph = retworkx.generators.grid_graph(2, 2)
+        mapping = retworkx.graph_vf2_mapping(
+            graph, second_graph, subgraph=True, id_order=False
+        )
+        self.assertEqual(next(mapping), {5: 0, 4: 2, 1: 3, 2: 1})

@@ -11,6 +11,7 @@
 // under the License.
 
 #![allow(clippy::float_cmp)]
+#![allow(clippy::too_many_arguments)]
 
 mod astar;
 mod digraph;
@@ -338,31 +339,16 @@ fn digraph_is_isomorphic(
     edge_matcher: Option<PyObject>,
     id_order: bool,
 ) -> PyResult<bool> {
-    let compare_nodes = node_matcher.map(|f| {
-        move |a: &PyObject, b: &PyObject| -> PyResult<bool> {
-            let res = f.call1(py, (a, b))?;
-            Ok(res.is_true(py).unwrap())
-        }
-    });
-
-    let compare_edges = edge_matcher.map(|f| {
-        move |a: &PyObject, b: &PyObject| -> PyResult<bool> {
-            let res = f.call1(py, (a, b))?;
-            Ok(res.is_true(py).unwrap())
-        }
-    });
-
-    let res = isomorphism::is_isomorphic(
+    isomorphism::is_isomorphic(
         py,
         &first.graph,
         &second.graph,
-        compare_nodes,
-        compare_edges,
+        node_matcher,
+        edge_matcher,
         id_order,
         Ordering::Equal,
         true,
-    )?;
-    Ok(res)
+    )
 }
 
 /// Determine if 2 undirected graphs are isomorphic
@@ -410,31 +396,16 @@ fn graph_is_isomorphic(
     edge_matcher: Option<PyObject>,
     id_order: bool,
 ) -> PyResult<bool> {
-    let compare_nodes = node_matcher.map(|f| {
-        move |a: &PyObject, b: &PyObject| -> PyResult<bool> {
-            let res = f.call1(py, (a, b))?;
-            Ok(res.is_true(py).unwrap())
-        }
-    });
-
-    let compare_edges = edge_matcher.map(|f| {
-        move |a: &PyObject, b: &PyObject| -> PyResult<bool> {
-            let res = f.call1(py, (a, b))?;
-            Ok(res.is_true(py).unwrap())
-        }
-    });
-
-    let res = isomorphism::is_isomorphic(
+    isomorphism::is_isomorphic(
         py,
         &first.graph,
         &second.graph,
-        compare_nodes,
-        compare_edges,
+        node_matcher,
+        edge_matcher,
         id_order,
         Ordering::Equal,
         true,
-    )?;
-    Ok(res)
+    )
 }
 
 /// Determine if 2 directed graphs are subgraph - isomorphic
@@ -490,31 +461,16 @@ fn digraph_is_subgraph_isomorphic(
     id_order: bool,
     induced: bool,
 ) -> PyResult<bool> {
-    let compare_nodes = node_matcher.map(|f| {
-        move |a: &PyObject, b: &PyObject| -> PyResult<bool> {
-            let res = f.call1(py, (a, b))?;
-            Ok(res.is_true(py).unwrap())
-        }
-    });
-
-    let compare_edges = edge_matcher.map(|f| {
-        move |a: &PyObject, b: &PyObject| -> PyResult<bool> {
-            let res = f.call1(py, (a, b))?;
-            Ok(res.is_true(py).unwrap())
-        }
-    });
-
-    let res = isomorphism::is_isomorphic(
+    isomorphism::is_isomorphic(
         py,
         &first.graph,
         &second.graph,
-        compare_nodes,
-        compare_edges,
+        node_matcher,
+        edge_matcher,
         id_order,
         Ordering::Greater,
         induced,
-    )?;
-    Ok(res)
+    )
 }
 
 /// Determine if 2 undirected graphs are subgraph - isomorphic
@@ -570,31 +526,161 @@ fn graph_is_subgraph_isomorphic(
     id_order: bool,
     induced: bool,
 ) -> PyResult<bool> {
-    let compare_nodes = node_matcher.map(|f| {
-        move |a: &PyObject, b: &PyObject| -> PyResult<bool> {
-            let res = f.call1(py, (a, b))?;
-            Ok(res.is_true(py).unwrap())
-        }
-    });
-
-    let compare_edges = edge_matcher.map(|f| {
-        move |a: &PyObject, b: &PyObject| -> PyResult<bool> {
-            let res = f.call1(py, (a, b))?;
-            Ok(res.is_true(py).unwrap())
-        }
-    });
-
-    let res = isomorphism::is_isomorphic(
+    isomorphism::is_isomorphic(
         py,
         &first.graph,
         &second.graph,
-        compare_nodes,
-        compare_edges,
+        node_matcher,
+        edge_matcher,
         id_order,
         Ordering::Greater,
         induced,
-    )?;
-    Ok(res)
+    )
+}
+
+/// Return an iterator over all vf2 mappings between two :class:`~retworkx.PyDiGraph` objects
+///
+/// This funcion will run the vf2 algorithm used from
+/// :func:`~retworkx.is_isomorphic` and :func:`~retworkx.is_subgraph_isomorphic`
+/// but instead of returning a boolean it will return an iterator over all possible
+/// mapping of node ids found from ``first`` to ``second``. If the graphs are not
+/// isomorphic then the iterator will be empty. A simple example that retrieves
+/// one mapping would be::
+///
+///         graph_a = retworkx.generators.directed_path_graph(3)
+///         graph_b = retworkx.generators.direccted_path_graph(2)
+///         vf2 = retworkx.digraph_vf2_mapping(graph_a, graph_b, subgraph=True)
+///         try:
+///             mapping = next(vf2)
+///         except StopIteration:
+///             pass
+///
+///
+/// :param PyDiGraph first: The first graph to find the mapping for
+/// :param PyDiGraph second: The second graph to find the mapping for
+/// :param node_matcher: An optional python callable object that takes 2
+///     positional arguments, one for each node data object in either graph.
+///     If the return of this function evaluates to True then the nodes
+///     passed to it are vieded as matching.
+/// :param edge_matcher: A python callable object that takes 2 positional
+///     one for each edge data object. If the return of this
+///     function evaluates to True then the edges passed to it are vieded
+///     as matching.
+/// :param bool id_order: If set to ``False`` this function will use a
+///     heuristic matching order based on [VF2]_ paper. Otherwise it will
+///     default to matching the nodes in order specified by their ids.
+/// :param bool subgraph: If set to ``True`` the function will return the
+///     subgraph isomorphic found between the graphs.
+/// :param bool induced: If set to ``True`` this function will check the existence
+///     of a node-induced subgraph of first isomorphic to second graph.
+///     Default: ``True``.
+///
+/// :returns: An iterator over dicitonaries of node indices from ``first`` to node
+///     indices in ``second`` representing the mapping found.
+/// :rtype: Iterable[NodeMap]
+#[pyfunction(id_order = "true", subgraph = "false", induced = "true")]
+#[pyo3(
+    text_signature = "(first, second, /, node_matcher=None, edge_matcher=None,
+                    id_order=True, subgraph=False, induced=True)"
+)]
+fn digraph_vf2_mapping(
+    py: Python,
+    first: &digraph::PyDiGraph,
+    second: &digraph::PyDiGraph,
+    node_matcher: Option<PyObject>,
+    edge_matcher: Option<PyObject>,
+    id_order: bool,
+    subgraph: bool,
+    induced: bool,
+) -> isomorphism::DiGraphVf2Mapping {
+    let ordering = if subgraph {
+        Ordering::Greater
+    } else {
+        Ordering::Equal
+    };
+
+    isomorphism::DiGraphVf2Mapping::new(
+        py,
+        &first.graph,
+        &second.graph,
+        node_matcher,
+        edge_matcher,
+        id_order,
+        ordering,
+        induced,
+    )
+}
+
+/// Return an iterator over all vf2 mappings between two :class:`~retworkx.PyGraph` objects
+///
+/// This funcion will run the vf2 algorithm used from
+/// :func:`~retworkx.is_isomorphic` and :func:`~retworkx.is_subgraph_isomorphic`
+/// but instead of returning a boolean it will return an iterator over all possible
+/// mapping of node ids found from ``first`` to ``second``. If the graphs are not
+/// isomorphic then the iterator will be empty. A simple example that retrieves
+/// one mapping would be::
+///
+///         graph_a = retworkx.generators.path_graph(3)
+///         graph_b = retworkx.generators.path_graph(2)
+///         vf2 = retworkx.graph_vf2_mapping(graph_a, graph_b, subgraph=True)
+///         try:
+///             mapping = next(vf2)
+///         except StopIteration:
+///             pass
+///
+/// :param PyGraph first: The first graph to find the mapping for
+/// :param PyGraph second: The second graph to find the mapping for
+/// :param node_matcher: An optional python callable object that takes 2
+///     positional arguments, one for each node data object in either graph.
+///     If the return of this function evaluates to True then the nodes
+///     passed to it are vieded as matching.
+/// :param edge_matcher: A python callable object that takes 2 positional
+///     one for each edge data object. If the return of this
+///     function evaluates to True then the edges passed to it are vieded
+///     as matching.
+/// :param bool id_order: If set to ``False`` this function will use a
+///     heuristic matching order based on [VF2]_ paper. Otherwise it will
+///     default to matching the nodes in order specified by their ids.
+/// :param bool subgraph: If set to ``True`` the function will return the
+///     subgraph isomorphic found between the graphs.
+/// :param bool induced: If set to ``True`` this function will check the existence
+///     of a node-induced subgraph of first isomorphic to second graph.
+///     Default: ``True``.
+///
+/// :returns: An iterator over dicitonaries of node indices from ``first`` to node
+///     indices in ``second`` representing the mapping found.
+/// :rtype: Iterable[NodeMap]
+#[pyfunction(id_order = "true", subgraph = "false", induced = "true")]
+#[pyo3(
+    text_signature = "(first, second, /, node_matcher=None, edge_matcher=None,
+                    id_order=True, subgraph=False, induced=True)"
+)]
+fn graph_vf2_mapping(
+    py: Python,
+    first: &graph::PyGraph,
+    second: &graph::PyGraph,
+    node_matcher: Option<PyObject>,
+    edge_matcher: Option<PyObject>,
+    id_order: bool,
+    subgraph: bool,
+    induced: bool,
+) -> isomorphism::GraphVf2Mapping {
+    let ordering = if subgraph {
+        Ordering::Greater
+    } else {
+        Ordering::Equal
+    };
+
+    isomorphism::GraphVf2Mapping::new(
+        py,
+        &first.graph,
+        &second.graph,
+        node_matcher,
+        edge_matcher,
+        id_order,
+        ordering,
+        induced,
+    )
 }
 
 /// Return the topological sort of node indexes from the provided graph
@@ -4774,6 +4860,8 @@ fn retworkx(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(graph_is_isomorphic))?;
     m.add_wrapped(wrap_pyfunction!(digraph_is_subgraph_isomorphic))?;
     m.add_wrapped(wrap_pyfunction!(graph_is_subgraph_isomorphic))?;
+    m.add_wrapped(wrap_pyfunction!(digraph_vf2_mapping))?;
+    m.add_wrapped(wrap_pyfunction!(graph_vf2_mapping))?;
     m.add_wrapped(wrap_pyfunction!(digraph_union))?;
     m.add_wrapped(wrap_pyfunction!(topological_sort))?;
     m.add_wrapped(wrap_pyfunction!(descendants))?;
