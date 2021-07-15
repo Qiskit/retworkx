@@ -11,6 +11,7 @@
 // under the License.
 
 #![allow(clippy::float_cmp)]
+#![allow(clippy::too_many_arguments)]
 
 mod astar;
 mod digraph;
@@ -61,7 +62,7 @@ use rayon::prelude::*;
 use crate::generators::PyInit_generators;
 use crate::iterators::{
     AllPairsPathLengthMapping, AllPairsPathMapping, EdgeList, NodeIndices,
-    NodesCountMapping, PathLengthMapping, PathMapping, Pos2DMapping,
+    NodeMap, NodesCountMapping, PathLengthMapping, PathMapping, Pos2DMapping,
     WeightedEdgeList,
 };
 
@@ -361,6 +362,7 @@ fn digraph_is_isomorphic(
         id_order,
         Ordering::Equal,
         true,
+        None,
     )?;
     Ok(res)
 }
@@ -433,6 +435,7 @@ fn graph_is_isomorphic(
         id_order,
         Ordering::Equal,
         true,
+        None,
     )?;
     Ok(res)
 }
@@ -513,6 +516,7 @@ fn digraph_is_subgraph_isomorphic(
         id_order,
         Ordering::Greater,
         induced,
+        None,
     )?;
     Ok(res)
 }
@@ -593,8 +597,171 @@ fn graph_is_subgraph_isomorphic(
         id_order,
         Ordering::Greater,
         induced,
+        None,
     )?;
     Ok(res)
+}
+
+/// Return the vf2 mapping between two :class:`~retworkx.PyDiGraph` objects
+///
+/// This funcion will run the vf2 algorithm used from
+/// :func:`~retworkx.is_isomorphic` and :func:`~retworkx.is_subgraph_isomorphic`
+/// but instead of returning a boolean it will return the mapping of node ids
+/// found from ``first`` to ``second``. If the graphs are not isomorphic than
+/// ``None`` will be returned.
+///
+/// :param PyDiGraph first: The first graph to find the mapping for
+/// :param PyDiGraph second: The second graph to find the mapping for
+/// :param node_matcher: An optional python callable object that takes 2
+///     positional arguments, one for each node data object in either graph.
+///     If the return of this function evaluates to True then the nodes
+///     passed to it are vieded as matching.
+/// :param edge_matcher: A python callable object that takes 2 positional
+///     one for each edge data object. If the return of this
+///     function evaluates to True then the edges passed to it are vieded
+///     as matching.
+/// :param bool id_order: If set to ``False`` this function will use a
+///     heuristic matching order based on [VF2]_ paper. Otherwise it will
+///     default to matching the nodes in order specified by their ids.
+/// :param bool subgraph: If set to ``True`` the function will return the
+///     subgraph isomorphic found between the graphs.
+/// :param bool induced: If set to ``True`` this function will check the existence
+///     of a node-induced subgraph of first isomorphic to second graph.
+///     Default: ``True``.
+///
+/// :returns: A dicitonary of node indices from ``first`` to node indices in
+///     ``second`` representing the mapping found.
+/// :rtype: NodeMap
+#[pyfunction(id_order = "true", subgraph = "false", induced = "true")]
+#[pyo3(text_signature="(first, second, /, node_matcher=None, edge_matcher=None, id_order=True, subgraph=False, induced=True)")]
+fn digraph_vf2_mapping(
+    py: Python,
+    first: &digraph::PyDiGraph,
+    second: &digraph::PyDiGraph,
+    node_matcher: Option<PyObject>,
+    edge_matcher: Option<PyObject>,
+    id_order: bool,
+    subgraph: bool,
+    induced: bool,
+) -> PyResult<Option<NodeMap>> {
+    let compare_nodes = node_matcher.map(|f| {
+        move |a: &PyObject, b: &PyObject| -> PyResult<bool> {
+            let res = f.call1(py, (a, b))?;
+            Ok(res.is_true(py).unwrap())
+        }
+    });
+
+    let compare_edges = edge_matcher.map(|f| {
+        move |a: &PyObject, b: &PyObject| -> PyResult<bool> {
+            let res = f.call1(py, (a, b))?;
+            Ok(res.is_true(py).unwrap())
+        }
+    });
+    let ordering = if subgraph {
+        Ordering::Greater
+    } else {
+        Ordering::Equal
+    };
+    let mut mapping: HashMap<usize, usize> = HashMap::with_capacity(
+        first.graph.node_count().min(second.graph.node_count()),
+    );
+    let res = isomorphism::is_isomorphic(
+        py,
+        &first.graph,
+        &second.graph,
+        compare_nodes,
+        compare_edges,
+        id_order,
+        ordering,
+        induced,
+        Some(&mut mapping),
+    )?;
+    if res {
+        Ok(Some(NodeMap { node_map: mapping }))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Return the vf2 mapping between two :class:`~retworkx.PyDiGraph` objects
+///
+/// This funcion will run the vf2 algorithm used from
+/// :func:`~retworkx.is_isomorphic` and :func:`~retworkx.is_subgraph_isomorphic`
+/// but instead of returning a boolean it will return the mapping of node ids
+/// found from ``first`` to ``second``. If the graphs are not isomorphic than
+/// ``None`` will be returned.
+///
+/// :param PyDiGraph first: The first graph to find the mapping for
+/// :param PyDiGraph second: The second graph to find the mapping for
+/// :param node_matcher: An optional python callable object that takes 2
+///     positional arguments, one for each node data object in either graph.
+///     If the return of this function evaluates to True then the nodes
+///     passed to it are vieded as matching.
+/// :param edge_matcher: A python callable object that takes 2 positional
+///     one for each edge data object. If the return of this
+///     function evaluates to True then the edges passed to it are vieded
+///     as matching.
+/// :param bool id_order: If set to ``False`` this function will use a
+///     heuristic matching order based on [VF2]_ paper. Otherwise it will
+///     default to matching the nodes in order specified by their ids.
+/// :param bool subgraph: If set to ``True`` the function will return the
+///     subgraph isomorphic found between the graphs.
+/// :param bool induced: If set to ``True`` this function will check the existence
+///     of a node-induced subgraph of first isomorphic to second graph.
+///     Default: ``True``.
+///
+/// :returns: A dicitonary of node indices from ``first`` to node indices in
+///     ``second`` representing the mapping found.
+/// :rtype: NodeMap
+#[pyfunction(id_order = "true", subgraph = "false", induced = "true")]
+#[pyo3(text_signature="(first, second, /, node_matcher=None, edge_matcher=None, id_order=True, subgraph=False, induced=True)")]
+fn graph_vf2_mapping(
+    py: Python,
+    first: &graph::PyGraph,
+    second: &graph::PyGraph,
+    node_matcher: Option<PyObject>,
+    edge_matcher: Option<PyObject>,
+    id_order: bool,
+    subgraph: bool,
+    induced: bool,
+) -> PyResult<Option<NodeMap>> {
+    let compare_nodes = node_matcher.map(|f| {
+        move |a: &PyObject, b: &PyObject| -> PyResult<bool> {
+            let res = f.call1(py, (a, b))?;
+            Ok(res.is_true(py).unwrap())
+        }
+    });
+
+    let compare_edges = edge_matcher.map(|f| {
+        move |a: &PyObject, b: &PyObject| -> PyResult<bool> {
+            let res = f.call1(py, (a, b))?;
+            Ok(res.is_true(py).unwrap())
+        }
+    });
+    let ordering = if subgraph {
+        Ordering::Greater
+    } else {
+        Ordering::Equal
+    };
+    let mut mapping: HashMap<usize, usize> = HashMap::with_capacity(
+        first.graph.node_count().min(second.graph.node_count()),
+    );
+    let res = isomorphism::is_isomorphic(
+        py,
+        &first.graph,
+        &second.graph,
+        compare_nodes,
+        compare_edges,
+        id_order,
+        ordering,
+        induced,
+        Some(&mut mapping),
+    )?;
+    if res {
+        Ok(Some(NodeMap { node_map: mapping }))
+    } else {
+        Ok(None)
+    }
 }
 
 /// Return the topological sort of node indexes from the provided graph
@@ -4774,6 +4941,8 @@ fn retworkx(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(graph_is_isomorphic))?;
     m.add_wrapped(wrap_pyfunction!(digraph_is_subgraph_isomorphic))?;
     m.add_wrapped(wrap_pyfunction!(graph_is_subgraph_isomorphic))?;
+    m.add_wrapped(wrap_pyfunction!(digraph_vf2_mapping))?;
+    m.add_wrapped(wrap_pyfunction!(graph_vf2_mapping))?;
     m.add_wrapped(wrap_pyfunction!(digraph_union))?;
     m.add_wrapped(wrap_pyfunction!(topological_sort))?;
     m.add_wrapped(wrap_pyfunction!(descendants))?;
