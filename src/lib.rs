@@ -29,6 +29,7 @@ use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeSet, BinaryHeap};
 
 use hashbrown::{HashMap, HashSet};
+use indexmap::IndexMap;
 
 use pyo3::create_exception;
 use pyo3::exceptions::{PyException, PyIndexError, PyValueError};
@@ -928,7 +929,7 @@ fn graph_greedy_color(
     py: Python,
     graph: &graph::PyGraph,
 ) -> PyResult<PyObject> {
-    let mut colors: HashMap<usize, usize> = HashMap::new();
+    let mut colors: IndexMap<usize, usize> = IndexMap::new();
     let mut node_vec: Vec<NodeIndex> = graph.graph.node_indices().collect();
     let mut sort_map: HashMap<NodeIndex, usize> =
         HashMap::with_capacity(graph.node_count());
@@ -1084,7 +1085,7 @@ fn _floyd_warshall<Ty: EdgeType>(
 ) -> PyResult<AllPairsPathLengthMapping> {
     if graph.node_count() == 0 {
         return Ok(AllPairsPathLengthMapping {
-            path_lengths: HashMap::new(),
+            path_lengths: IndexMap::new(),
         });
     } else if graph.edge_count() == 0 {
         return Ok(AllPairsPathLengthMapping {
@@ -1094,7 +1095,7 @@ fn _floyd_warshall<Ty: EdgeType>(
                     (
                         i.index(),
                         PathLengthMapping {
-                            path_lengths: HashMap::new(),
+                            path_lengths: IndexMap::new(),
                         },
                     )
                 })
@@ -1177,7 +1178,7 @@ fn _floyd_warshall<Ty: EdgeType>(
     // Convert to return format
     let node_indices: Vec<NodeIndex> = graph.node_indices().collect();
 
-    let out_map: HashMap<usize, PathLengthMapping> = node_indices
+    let out_map: IndexMap<usize, PathLengthMapping> = node_indices
         .into_iter()
         .map(|i| {
             let out_map = PathLengthMapping {
@@ -2363,7 +2364,7 @@ fn _all_pairs_dijkstra_path_lengths<Ty: EdgeType + Sync>(
 ) -> PyResult<AllPairsPathLengthMapping> {
     if graph.node_count() == 0 {
         return Ok(AllPairsPathLengthMapping {
-            path_lengths: HashMap::new(),
+            path_lengths: IndexMap::new(),
         });
     } else if graph.edge_count() == 0 {
         return Ok(AllPairsPathLengthMapping {
@@ -2373,7 +2374,7 @@ fn _all_pairs_dijkstra_path_lengths<Ty: EdgeType + Sync>(
                     (
                         i.index(),
                         PathLengthMapping {
-                            path_lengths: HashMap::new(),
+                            path_lengths: IndexMap::new(),
                         },
                     )
                 })
@@ -2403,7 +2404,7 @@ fn _all_pairs_dijkstra_path_lengths<Ty: EdgeType + Sync>(
         }
     };
     let node_indices: Vec<NodeIndex> = graph.node_indices().collect();
-    let out_map: HashMap<usize, PathLengthMapping> = node_indices
+    let out_map: IndexMap<usize, PathLengthMapping> = node_indices
         .into_par_iter()
         .map(|x| {
             let out_map = PathLengthMapping {
@@ -2440,7 +2441,7 @@ fn _all_pairs_dijkstra_shortest_paths<Ty: EdgeType + Sync>(
 ) -> PyResult<AllPairsPathMapping> {
     if graph.node_count() == 0 {
         return Ok(AllPairsPathMapping {
-            paths: HashMap::new(),
+            paths: IndexMap::new(),
         });
     } else if graph.edge_count() == 0 {
         return Ok(AllPairsPathMapping {
@@ -2450,7 +2451,7 @@ fn _all_pairs_dijkstra_shortest_paths<Ty: EdgeType + Sync>(
                     (
                         i.index(),
                         PathMapping {
-                            paths: HashMap::new(),
+                            paths: IndexMap::new(),
                         },
                     )
                 })
@@ -4649,7 +4650,7 @@ pub fn digraph_spiral_layout(
 fn _num_shortest_paths_unweighted<Ty: EdgeType>(
     graph: &StableGraph<PyObject, PyObject, Ty>,
     source: usize,
-) -> PyResult<HashMap<usize, BigUint>> {
+) -> PyResult<IndexMap<usize, BigUint>> {
     let mut out_map: Vec<BigUint> =
         vec![0.to_biguint().unwrap(); graph.node_bound()];
     let node_index = NodeIndex::new(source);
